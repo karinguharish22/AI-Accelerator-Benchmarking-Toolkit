@@ -1,0 +1,44 @@
+# Merges a LoRA adapter into the base model on a CPU node, so vLLM can serve the
+# fine-tuned model from /results/models/${ADAPTER_RUN}.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: merge-${RUN_ID}
+  namespace: accelbench
+  labels: { app: accelbench, workload: merge }
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: { app: accelbench, workload: merge }
+      annotations:
+        gke-gcsfuse/volumes: "true"
+    spec:
+      serviceAccountName: accelbench-runner
+      restartPolicy: Never
+      nodeSelector:
+        cloud.google.com/gke-nodepool: system
+      containers:
+        - name: merge
+          image: ${REGISTRY}/train-gpu:${IMAGE_TAG}
+          command: ["python", "-m", "training.merge_adapter"]
+          args:
+            - --base=${MODEL}
+            - --adapter=/results/training/${ADAPTER_RUN}/adapter
+            - --output=/results/models/${ADAPTER_RUN}
+          env:
+            - name: HF_TOKEN
+              valueFrom: { secretKeyRef: { name: hf-token, key: token } }
+          resources:
+            requests: { cpu: "2", memory: 10Gi }
+          volumeMounts:
+            - { name: results, mountPath: /results }
+            - { name: cache, mountPath: /cache }
+      volumes:
+        - name: results
+          csi:
+            driver: gcsfuse.csi.storage.gke.io
+            volumeAttributes: { bucketName: ${BUCKET}, mountOptions: implicit-dirs }
+        - name: cache
+          emptyDir: {}

@@ -1,0 +1,8 @@
+# Local analysis, dashboard and tests (no accelerator needed).
+-r requirements-tools.txt
+pandas>=2.0
+matplotlib>=3.8
+streamlit>=1.36
+altair>=5.0
+pytest>=8.0
+ruff>=0.5

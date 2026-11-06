@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: train-gpu-${RUN_ID}
+  namespace: accelbench
+  labels: { app: accelbench, workload: train, accelerator: gpu }
+spec:
+  backoffLimit: 2 # retries after Spot preemption
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: { app: accelbench, workload: train, accelerator: gpu }
+      annotations:
+        gke-gcsfuse/volumes: "true"
+    spec:
+      serviceAccountName: accelbench-runner
+      restartPolicy: Never
+      nodeSelector:
+        cloud.google.com/gke-accelerator: ${GPU_TYPE}
+      tolerations:
+        - { key: nvidia.com/gpu, operator: Exists, effect: NoSchedule }
+        - { key: cloud.google.com/gke-spot, operator: Equal, value: "true", effect: NoSchedule }
+      containers:
+        - name: train
+          image: ${REGISTRY}/train-gpu:${IMAGE_TAG}
+          args:
+            - --device=cuda
+            - --accelerator-profile=${GPU_PROFILE}
+            - --run-id=${RUN_ID}
+            - --model=${MODEL}
+            - --seq-len=${SEQ_LEN}
+            - --padding=${PADDING}
+            - --per-device-batch-size=${GPU_BATCH_SIZE}
+            - --max-steps=${MAX_STEPS}
+            - --output-dir=/results/training
+            - --save-adapter
+          env:
+            - name: HF_TOKEN
+              valueFrom: { secretKeyRef: { name: hf-token, key: token } }
+          resources:
+            requests: { cpu: "6", memory: 24Gi }
+            limits: { nvidia.com/gpu: 1 }
+          volumeMounts:
+            - { name: results, mountPath: /results }
+            - { name: cache, mountPath: /cache }
+            - { name: dshm, mountPath: /dev/shm }
+      volumes:
+        - name: results
+          csi:
+            driver: gcsfuse.csi.storage.gke.io
+            volumeAttributes: { bucketName: ${BUCKET}, mountOptions: implicit-dirs }
+        - name: cache
+          emptyDir: {}
+        - name: dshm
+          emptyDir: { medium: Memory, sizeLimit: 8Gi }

@@ -1,0 +1,45 @@
+# Accelerator profiles used by the cost model.
+#
+# !! The hourly prices below are PLACEHOLDERS to make the pipeline run. Prices vary by
+# !! region and change over time. Before you publish any cost numbers, replace them with
+# !! the current prices for your zone from https://cloud.google.com/compute/gpus-pricing
+# !! and https://cloud.google.com/tpu/pricing (whole machine: accelerators + vCPU + RAM).
+#
+# peak_bf16_tflops_per_chip is the vendor's dense BF16 peak, used only for MFU.
+
+profiles:
+  gpu-l4x1:
+    description: "g2-standard-8 (1x NVIDIA L4 24GB)"
+    accelerator: gpu
+    chips: 1
+    peak_bf16_tflops_per_chip: 121
+    hourly_usd:
+      on_demand: 0.85   # PLACEHOLDER - verify
+      spot: 0.30        # PLACEHOLDER - verify
+
+  gpu-a100x1:
+    description: "a2-highgpu-1g (1x NVIDIA A100 40GB)"
+    accelerator: gpu
+    chips: 1
+    peak_bf16_tflops_per_chip: 312
+    hourly_usd:
+      on_demand: 3.67   # PLACEHOLDER - verify
+      spot: 1.15        # PLACEHOLDER - verify
+
+  tpu-v5e-1:
+    description: "ct5lp-hightpu-1t (1x TPU v5e chip, 16GB HBM)"
+    accelerator: tpu
+    chips: 1
+    peak_bf16_tflops_per_chip: 197
+    hourly_usd:
+      on_demand: 1.20   # PLACEHOLDER - verify
+      spot: 0.50        # PLACEHOLDER - verify
+
+  tpu-v5e-4:
+    description: "ct5lp-hightpu-4t (4x TPU v5e chips, 2x2)"
+    accelerator: tpu
+    chips: 4
+    peak_bf16_tflops_per_chip: 197
+    hourly_usd:
+      on_demand: 4.80   # PLACEHOLDER - verify
+      spot: 2.00        # PLACEHOLDER - verify

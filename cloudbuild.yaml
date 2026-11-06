@@ -1,0 +1,29 @@
+# Builds all three images remotely, so no local Docker or GPU is needed.
+# make build  (or)  gcloud builds submit --config cloudbuild.yaml --substitutions=_REGISTRY=...,_TAG=latest
+steps:
+  - id: train-gpu
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "docker/train-gpu.Dockerfile", "-t", "${_REGISTRY}/train-gpu:${_TAG}", "."]
+    waitFor: ["-"]
+  - id: train-tpu
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "docker/train-tpu.Dockerfile", "-t", "${_REGISTRY}/train-tpu:${_TAG}", "."]
+    waitFor: ["-"]
+  - id: tools
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "docker/tools.Dockerfile", "-t", "${_REGISTRY}/tools:${_TAG}", "."]
+    waitFor: ["-"]
+
+images:
+  - "${_REGISTRY}/train-gpu:${_TAG}"
+  - "${_REGISTRY}/train-tpu:${_TAG}"
+  - "${_REGISTRY}/tools:${_TAG}"
+
+substitutions:
+  _REGISTRY: ""
+  _TAG: latest
+
+options:
+  machineType: E2_HIGHCPU_8
+  diskSizeGb: 100
+timeout: 3600s

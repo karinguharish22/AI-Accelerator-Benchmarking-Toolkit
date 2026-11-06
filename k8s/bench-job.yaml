@@ -1,0 +1,42 @@
+# In-cluster load generator, so network latency to the model server is negligible.
+# TARGET is gpu or tpu (selects the vllm-<TARGET> Service).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bench-${TARGET}-${RUN_ID}
+  namespace: accelbench
+  labels: { app: accelbench, workload: bench }
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: { app: accelbench, workload: bench }
+      annotations:
+        gke-gcsfuse/volumes: "true"
+    spec:
+      serviceAccountName: accelbench-runner
+      restartPolicy: Never
+      nodeSelector:
+        cloud.google.com/gke-nodepool: system
+      containers:
+        - name: bench
+          image: ${REGISTRY}/tools:${IMAGE_TAG}
+          args:
+            - --base-url=http://vllm-${TARGET}:8000
+            - --model=${SERVED_NAME}
+            - --accelerator-profile=${PROFILE}
+            - --run-id=${RUN_ID}
+            - --concurrency=${CONCURRENCY}
+            - --input-len=${INPUT_LEN}
+            - --output-len=${OUTPUT_LEN}
+            - --output=/results/inference/${RUN_ID}-${PROFILE}
+          resources:
+            requests: { cpu: "1", memory: 1Gi }
+          volumeMounts:
+            - { name: results, mountPath: /results }
+      volumes:
+        - name: results
+          csi:
+            driver: gcsfuse.csi.storage.gke.io
+            volumeAttributes: { bucketName: ${BUCKET}, mountOptions: implicit-dirs }

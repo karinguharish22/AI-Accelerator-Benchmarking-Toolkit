@@ -1,0 +1,16 @@
+[project]
+name = "accelbench"
+version = "0.1.0"
+description = "TPU vs GPU benchmarking and migration toolkit for LLM workloads on GKE"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

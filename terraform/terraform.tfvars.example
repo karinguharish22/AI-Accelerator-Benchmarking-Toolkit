@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars and edit. terraform.tfvars is git-ignored.
+project_id = "your-project-id"
+region     = "us-central1"
+zone       = "us-central1-a"
+use_spot   = true
+
+# Swap the GPU for a comparison run, e.g. A100 40GB:
+# gpu_machine_type = "a2-highgpu-1g"
+# gpu_type         = "nvidia-tesla-a100"

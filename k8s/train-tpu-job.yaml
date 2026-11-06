@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: train-tpu-${RUN_ID}
+  namespace: accelbench
+  labels: { app: accelbench, workload: train, accelerator: tpu }
+spec:
+  backoffLimit: 2 # retries after Spot preemption
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: { app: accelbench, workload: train, accelerator: tpu }
+      annotations:
+        gke-gcsfuse/volumes: "true"
+    spec:
+      serviceAccountName: accelbench-runner
+      restartPolicy: Never
+      # Single-host TPU v5e slice with 4 chips (ct5lp-hightpu-4t).
+      nodeSelector:
+        cloud.google.com/gke-tpu-accelerator: tpu-v5-lite-podslice
+        cloud.google.com/gke-tpu-topology: 2x2
+      tolerations:
+        - { key: google.com/tpu, operator: Exists, effect: NoSchedule }
+        - { key: cloud.google.com/gke-spot, operator: Equal, value: "true", effect: NoSchedule }
+      containers:
+        - name: train
+          image: ${REGISTRY}/train-tpu:${IMAGE_TAG}
+          args:
+            - --device=xla
+            - --accelerator-profile=${TPU_TRAIN_PROFILE}
+            - --run-id=${RUN_ID}
+            - --model=${MODEL}
+            - --seq-len=${SEQ_LEN}
+            - --padding=${PADDING}
+            - --per-device-batch-size=${TPU_BATCH_SIZE}
+            - --max-steps=${MAX_STEPS}
+            - --output-dir=/results/training
+            - --save-adapter
+          env:
+            - name: PJRT_DEVICE
+              value: TPU
+            - name: HF_TOKEN
+              valueFrom: { secretKeyRef: { name: hf-token, key: token } }
+          ports:
+            - { name: xla-profiler, containerPort: 9012 }
+          resources:
+            requests: { cpu: "64", memory: 160Gi }
+            limits: { google.com/tpu: 4 }
+          volumeMounts:
+            - { name: results, mountPath: /results }
+            - { name: cache, mountPath: /cache }
+            - { name: dshm, mountPath: /dev/shm }
+      volumes:
+        - name: results
+          csi:
+            driver: gcsfuse.csi.storage.gke.io
+            volumeAttributes: { bucketName: ${BUCKET}, mountOptions: implicit-dirs }
+        - name: cache
+          emptyDir: {}
+        - name: dshm
+          emptyDir: { medium: Memory, sizeLimit: 16Gi }

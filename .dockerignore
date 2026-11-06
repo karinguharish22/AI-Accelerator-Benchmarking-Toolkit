@@ -1,0 +1,9 @@
+.git
+results
+results-demo
+terraform
+docs
+tests
+dashboard
+**/__pycache__
+.env*

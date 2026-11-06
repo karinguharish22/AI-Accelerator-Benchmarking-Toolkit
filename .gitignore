@@ -1,0 +1,30 @@
+# Secrets and generated config
+.env
+.env.*
+*.json.key
+*-key.json
+credentials*.json
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+terraform/terraform.tfvars
+crash.log
+
+# Results (keep them in GCS; commit only curated charts under docs/)
+results/
+results-demo/
+
+# Models
+*.safetensors
+*.bin
+*.pt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/

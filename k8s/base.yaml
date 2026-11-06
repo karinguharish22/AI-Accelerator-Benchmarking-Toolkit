@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: accelbench
+---
+# Pods run as this service account; Workload Identity maps it to the Google
+# service account that can read/write the results bucket.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: accelbench-runner
+  namespace: accelbench
+  annotations:
+    iam.gke.io/gcp-service-account: ${WORKLOAD_SA}

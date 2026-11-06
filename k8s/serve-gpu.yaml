@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-gpu
+  namespace: accelbench
+  labels: { app: accelbench, workload: serve, accelerator: gpu }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: accelbench, workload: serve, accelerator: gpu }
+  template:
+    metadata:
+      labels: { app: accelbench, workload: serve, accelerator: gpu }
+      annotations:
+        gke-gcsfuse/volumes: "true"
+    spec:
+      serviceAccountName: accelbench-runner
+      nodeSelector:
+        cloud.google.com/gke-accelerator: ${GPU_TYPE}
+      tolerations:
+        - { key: nvidia.com/gpu, operator: Exists, effect: NoSchedule }
+        - { key: cloud.google.com/gke-spot, operator: Equal, value: "true", effect: NoSchedule }
+      containers:
+        - name: vllm
+          image: ${VLLM_GPU_IMAGE}
+          command: ["python3", "-m", "vllm.entrypoints.openai.api_server"]
+          args:
+            - --model=${SERVE_MODEL}
+            - --served-model-name=${SERVED_NAME}
+            - --max-model-len=${MAX_MODEL_LEN}
+            - --dtype=bfloat16
+            - --download-dir=/cache
+            - --port=8000
+          env:
+            - name: HF_TOKEN
+              valueFrom: { secretKeyRef: { name: hf-token, key: token } }
+          ports:
+            - { name: http, containerPort: 8000 }
+          startupProbe: # model download + CUDA graph capture
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 10
+            failureThreshold: 180
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "6", memory: 24Gi }
+            limits: { nvidia.com/gpu: 1 }
+          volumeMounts:
+            - { name: results, mountPath: /results, readOnly: true }
+            - { name: cache, mountPath: /cache }
+            - { name: dshm, mountPath: /dev/shm }
+      volumes:
+        - name: results
+          csi:
+            driver: gcsfuse.csi.storage.gke.io
+            readOnly: true
+            volumeAttributes: { bucketName: ${BUCKET}, mountOptions: implicit-dirs }
+        - name: cache
+          emptyDir: {}
+        - name: dshm
+          emptyDir: { medium: Memory, sizeLimit: 8Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-gpu
+  namespace: accelbench
+  labels: { app: accelbench, workload: serve }
+spec:
+  selector: { app: accelbench, workload: serve, accelerator: gpu }
+  ports:
+    - { name: http, port: 8000, targetPort: 8000 }
